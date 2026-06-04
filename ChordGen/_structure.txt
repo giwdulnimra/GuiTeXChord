@@ -1,0 +1,7 @@
+ChordGen/
+├── CMakeLists.txt          (include(SetupQt.cmake) außerhalb)
+├── main.cpp
+├── MainWindow.h/cpp
+├── ChordWidget.h/cpp       (Grid-Eingabe + Preview)
+├── ChordData.h             (Datenmodell)
+└── LatexGenerator.h/cpp    (TikZ-Code-Erzeugung)

@@ -1,0 +1,122 @@
+\documentclass[tikz, border=2pt]{standalone}
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots}
+\usepackage{pgfplotstable}
+\pgfdeclarelayer{nodelayer}
+\pgfdeclarelayer{edgelayer}
+\pgfdeclarelayer{backgroundlayer}
+\pgfsetlayers{backgroundlayer,edgelayer,nodelayer,main}
+
+\tikzset{
+	root/.style={
+		draw=black,
+		shape=circle,
+		fill=white,
+		minimum size=8pt,
+		inner sep=0pt,
+	},
+	tone/.style={
+		draw=black,
+		shape=circle,
+		fill=black,
+		minimum size=7pt,
+		inner sep=0pt,
+	},
+	mute/.style={
+		draw=none,
+		shape=rectangle,
+		rounded corners=.7pt,
+		minimum size=8pt,
+		path picture={
+			\draw[line width=1pt, color=black](path picture bounding box.south west) -- (path picture bounding box.north east)(path picture bounding box.north west) -- (path picture bounding box.south east);
+			}
+	},
+}
+
+\begin{document}
+	\newcommand{\xdist}{0.4}
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [] (1) at (-5*\xdist, 3.18) {};
+		\node [] (2) at (-3*\xdist, 3.18) {};
+		\node [] (3) at (-1*\xdist, 3.18) {};
+		\node [] (4) at ( 1*\xdist, 3.18) {};
+		\node [] (5) at ( 3*\xdist, 3.18) {};
+		\node [] (6) at ( 5*\xdist, 3.18) {};
+		\node [] (7) at (-5*\xdist, -3) {};
+		\node [] (8) at (-3*\xdist, -3) {};
+		\node [] (9) at (-1*\xdist, -3) {};
+		\node [] (10) at (1*\xdist, -3) {};
+		\node [] (11) at (3*\xdist, -3) {};
+		\node [] (12) at (5*\xdist, -3) {};
+
+		\node [] (13) at (-5*\xdist, 3) {};
+		\node [] (14) at ( 5*\xdist, 3) {};
+		\node [] (15) at (-5*\xdist, 1.5) {};
+		\node [] (16) at ( 5*\xdist, 1.5) {};
+		\node [] (17) at (-5*\xdist, 0) {};
+		\node [] (18) at ( 5*\xdist, 0) {};
+		\node [] (19) at (-5*\xdist,-1.5) {};
+		\node [] (20) at ( 5*\xdist,-1.5) {};
+
+		\node [rotate=90] (startfret) at (-6*\xdist, 2.25) {IV};
+		\node [] (Et) at (-5*\xdist, 3.6) {E};
+		\node [] (At) at (-3*\xdist, 3.6) {A};
+		\node [] (dt) at (-1*\xdist, 3.6) {d};
+		\node [] (gt) at ( 1*\xdist, 3.5) {g};
+		\node [] (ht) at ( 3*\xdist, 3.6) {h};
+		\node [] (e't) at( 5*\xdist, 3.6) {e'};
+
+		\node [mute] (E0) at (-5*\xdist, 3.1) {};
+		\node [] (E1) at (-5*\xdist, 2.25) {};
+		\node [] (E2) at (-5*\xdist, 0.75) {};
+		\node [] (E3) at (-5*\xdist, -0.75) {};
+		\node [] (E4) at (-5*\xdist, -2.25) {};
+
+		\node [] (A0) at (-3*\xdist, 3.1) {};
+		\node [] (A1) at (-3*\xdist, 2.25) {};
+		\node [] (A2) at (-3*\xdist, 0.75) {};
+		\node [root] (A3) at (-3*\xdist, -0.75) {};
+		\node [] (A4) at (-3*\xdist, -2.25) {};
+
+		\node [] (d0) at (-1*\xdist, 3.1) {};
+		\node [] (d1) at (-1*\xdist, 2.25) {};
+		\node [tone] (d2) at (-1*\xdist, 0.75) {};
+		\node [] (d3) at (-1*\xdist, -0.75) {};
+		\node [] (d4) at (-1*\xdist, -2.25) {};
+
+		\node [tone] (g0) at (1*\xdist, 3.1) {};
+		\node [] (g1) at (1*\xdist, 2.25) {};
+		\node [] (g2) at (1*\xdist, 0.75) {};
+		\node [] (g3) at (1*\xdist, -0.75) {};
+		\node [] (g4) at (1*\xdist, -2.25) {};
+
+		\node [] (h0) at (3*\xdist, 3.5, 3.1) {};
+		\node [root] (h1) at (3*\xdist, 2.25) {};
+		\node [] (h2) at (3*\xdist, 3.5, 0.75) {};
+		\node [] (h3) at (3*\xdist, 3.5, -0.75) {};
+		\node [] (h4) at (3*\xdist, 3.5, -2.25) {};
+
+		\node [tone] (e0) at (5*\xdist, 3.12) {};
+		\node [] (e1) at (5*\xdist, 2.25) {};
+		\node [] (e2) at (5*\xdist, 0.75) {};
+		\node [] (e3) at (5*\xdist, -0.75) {};
+		\node [] (e4) at (5*\xdist, -2.25) {};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		%\draw (1.center) to (7.center);
+		\draw (2.center) to (8.center);
+		\draw (3.center) to (9.center);
+		\draw (4.center) to (10.center);
+		\draw (5.center) to (11.center);
+		%\draw (6.center) to (12.center);
+		\draw (1.center) -- (6.center) -- (12.center) -- (7.center) -- cycle;
+		\draw (13.center) to (14.center);
+		\draw (15.center) to (16.center);
+		\draw (17.center) to (18.center);
+		\draw (19.center) to (20.center);
+
+		\draw [fill=black, bend right=45] (e4.south) to (e4.east) to (e4.north) -- (g4.north) to (g4.west) to (g4.south) -- cycle;
+	\end{pgfonlayer}
+\end{tikzpicture}
+\end{document}

@@ -64,7 +64,8 @@ void MainWindow::setupMenu()
     });
 
     fileMenu->addSeparator();
-    fileMenu->addAction("&Beenden", this, &QWidget::close, QKeySequence::Quit);
+    fileMenu->addAction("&Beenden", QKeySequence::Quit, this, &QWidget::close);
+    //fileMenu->addAction("&Beenden", this, &QWidget::close, QKeySequence::Quit);
 
     auto *helpMenu = menuBar()->addMenu("&Hilfe");
     helpMenu->addAction("Über", this, []{

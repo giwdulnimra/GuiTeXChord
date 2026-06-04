@@ -4,33 +4,48 @@ project(ChordGen VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# SetupQt.cmake liegt außerhalb des Projekts – Pfad ggf. anpassen
-include("${CMAKE_SOURCE_DIR}/SetupQt.cmake")
-
-# ── Qt path ───────────────────────────────────────────────────────────────────
-if(NOT DEFINED CMAKE_PREFIX_PATH OR CMAKE_PREFIX_PATH STREQUAL "")
-    set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/mingw_64")
+# ── Version ───────────────────────────────────────────────────────────────────
+if(${PROJECT_VERSION_MINOR} LESS 10)
+    set(DISP_MINOR "0${PROJECT_VERSION_MINOR}")
+else()
+    set(DISP_MINOR "${PROJECT_VERSION_MINOR}")
+endif()
+if(${PROJECT_VERSION_PATCH} LESS 10)
+    set(DISP_PATCH "0${PROJECT_VERSION_PATCH}")
+else()
+    set(DISP_PATCH "${PROJECT_VERSION_PATCH}")
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets)
+set(APPVERSION         "v${PROJECT_VERSION_MAJOR}_${DISP_MINOR}${DISP_PATCH}")
+set(APPVERSION_DISPLAY "v${PROJECT_VERSION}")
 
+# Macht die Versionen auch im C++ Code als Makros verfügbar
+add_compile_definitions(
+        CPP_APPVERSION="${APPVERSION}"
+        CPP_APPVERSION_DISPLAY="${APPVERSION_DISPLAY}"
+        #CPP_SEMVER="${PROJECT_VERSION}"
+)
+
+# ── SetupQt ───────────────────────────────────────────────────────────────────
+include("${CMAKE_SOURCE_DIR}/SetupQt.cmake")
+
+# ── Sources & Headers ─────────────────────────────────────────────────────────
 set(SOURCES
-    main.cpp
-    MainWindow.cpp
-    ChordWidget.cpp
-    ChordPreview.cpp
-    LatexGenerator.cpp
+        src/main.cpp
+        src/MainWindow.cpp
+        src/ChordWidget.cpp
+        src/ChordPreview.cpp
+        src/LatexGenerator.cpp
 )
 
 set(HEADERS
-    MainWindow.h
-    ChordWidget.h
-    ChordPreview.h
-    ChordData.h
-    LatexGenerator.h
+        src/MainWindow.h
+        src/ChordWidget.h
+        src/ChordPreview.h
+        src/ChordData.h
+        src/LatexGenerator.h
 )
-
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-set_target_properties(${PROJECT_NAME} PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON)
-target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
+# ── Target Konfiguration ──────────────────────────────────────────────────────
+setup_qt_target(${PROJECT_NAME})

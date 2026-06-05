@@ -1,21 +1,29 @@
 #include "ChordPreview.h"
 #include <QPainter>
 #include <QPainterPath>
-#include <QFontMetricsF>
 
-// Koordinatensystem identisch zu LatexGenerator
-static constexpr double XDIST = 0.4;
-static const double FRET_Y[]  = { 3.10, 2.25, 0.75, -0.75, -2.25 };
-static const double GRID_Y[]  = { 3.0,  1.5,  0.0,  -1.5 };
-static constexpr double BOTTOM_Y = -3.0;
-static constexpr double LABEL_Y  =  3.6;
+// ---------------------------------------------------------------------------
+// Koordinatensystem identisch zu LatexGenerator (gedreht):
+//   x  = Bünde  (links→rechts): Bund 0 links abgesetzt, Bünde 1-4 gleichmäßig
+//   y  = Saiten (oben→unten):   stringIdx 0 (e1) oben, stringIdx N-1 (E6) unten
+// ---------------------------------------------------------------------------
 
-static double stringX(int idx, int n) {
-    return (2*idx - (n-1)) * XDIST;
+static constexpr double YDIST = 0.7;
+
+static const double FRET_X[]  = { -0.5, 0.75, 2.25, 3.75, 5.25 };
+static const double GRID_X[]  = {  0.0, 1.5,  3.0,  4.5 };
+static constexpr double FRAME_LEFT   = -1.0;
+static constexpr double FRAME_RIGHT  =  6.0;
+static constexpr double LABEL_X      = -1.6;
+static constexpr double NAME_Y_OFFSET =  0.7;
+
+static double logStringY(int idx, int n) {
+    return ((n - 1) / 2.0 - idx) * YDIST;
 }
 
+// ---------------------------------------------------------------------------
 ChordPreview::ChordPreview(QWidget *parent) : QWidget(parent) {
-    setMinimumSize(120, 180);
+    setMinimumSize(200, 120);
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 }
 
@@ -24,17 +32,13 @@ void ChordPreview::setChord(const ChordData &chord) {
     update();
 }
 
-QPointF ChordPreview::toPixel(double lx, double ly) const {
-    // Logisch: x wächst nach rechts, y wächst nach oben
-    // Widget: x nach rechts, y nach unten
-    // Referenzpunkt: Mitte oben des Rasters (y=3.18)
-    double px = m_marginX + (lx / XDIST + (m_chord.numStrings-1)) * m_scaleX * XDIST / (2*XDIST) * 2;
-    // Einfacher: direkte Skalierung
-    double originX = width()  / 2.0;
-    double originY = m_marginY + (3.18 - LABEL_Y) * (-m_scaleY); // Label-Zeile oben
-
-    px = originX + lx * m_scaleX;
-    double py = originY + (LABEL_Y - ly) * m_scaleY;
+// Logische Koordinate → Widget-Pixel
+// Logisch: x wächst nach rechts, y wächst nach oben (TikZ-Konvention)
+// Widget:  x nach rechts, y nach unten
+QPointF ChordPreview::toPixel(double lx, double ly) const
+{
+    double px = m_originX + lx * m_scaleX;
+    double py = m_originY - ly * m_scaleY;   // y umkehren
     return { px, py };
 }
 
@@ -43,124 +47,153 @@ void ChordPreview::paintEvent(QPaintEvent *)
     const ChordData &c = m_chord;
     if (c.numStrings < 2) return;
 
-    // Dynamisch skalieren auf Widget-Größe
-    double usableW = width()  - 2*m_marginX;
-    double usableH = height() - 2*m_marginY - 20; // 20px oben für Akkordname
-    double totalLogW = (c.numStrings - 1) * (2 * XDIST); // logische Breite
-    double totalLogH = LABEL_Y - BOTTOM_Y;
-    m_scaleX = usableW / totalLogW;
-    m_scaleY = usableH / totalLogH;
-    // Gleichmäßige Skalierung wäre m_scaleX = m_scaleY = min(...),
-    // aber Grifftabellen sind bewusst gestreckt – daher getrennt.
+    const int N = c.numStrings;
+    double yTop    = logStringY(0,   N);
+    double yBottom = logStringY(N-1, N);
+
+    // --- Skalierung dynamisch auf Widget-Größe ---
+    // Logische Ausdehnung:
+    double logW = FRAME_RIGHT - FRAME_LEFT;
+    double logH = yTop - yBottom;
+
+    // Platz für Name oben und Startbund unten
+    double topMargin    = c.showName && !c.fullName().isEmpty() ? 26.0 : 10.0;
+    double bottomMargin = c.showStartFret ? 22.0 : 10.0;
+    double leftMargin   = 28.0;  // Saiten-Labels
+    double rightMargin  = 10.0;
+
+    double usableW = width()  - leftMargin  - rightMargin;
+    double usableH = height() - topMargin   - bottomMargin;
+
+    m_scaleX = usableW / logW;
+    m_scaleY = usableH / logH;
+
+    // Ursprung: logischer Punkt (FRAME_LEFT, yTop) → Pixel (leftMargin, topMargin)
+    m_originX = leftMargin  - FRAME_LEFT * m_scaleX;
+    m_originY = topMargin   + yTop       * m_scaleY;
 
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
     // --- Akkord-Name ---
     if (c.showName && !c.fullName().isEmpty()) {
-        QFont f = p.font();
-        f.setBold(true);
-        f.setPointSize(10);
-        p.setFont(f);
-        p.drawText(rect().adjusted(0,2,0,-height()+20),
-                   Qt::AlignHCenter | Qt::AlignTop, c.fullName());
+        QFont f = p.font(); f.setBold(true); f.setPointSize(10); p.setFont(f);
+        double cx = (FRAME_LEFT + FRAME_RIGHT) / 2.0;
+        auto pt = toPixel(cx, yTop + NAME_Y_OFFSET);
+        p.drawText(QRectF(pt.x() - 60, pt.y() - 10, 120, 18),
+                   Qt::AlignHCenter | Qt::AlignVCenter, c.fullName());
     }
-
-    p.setPen(QPen(Qt::black, 1.5));
-    QFont labelFont = p.font();
-    labelFont.setBold(false);
-    labelFont.setPointSize(7);
-    p.setFont(labelFont);
 
     // --- Saiten-Labels ---
-    for (int s = 0; s < c.numStrings; ++s) {
-        auto pt = toPixel(stringX(s, c.numStrings), LABEL_Y);
-        QString lbl = (s < c.tuning.size()) ? c.tuning[s] : "";
-        QRectF r(pt.x()-12, pt.y()-8, 24, 14);
-        p.drawText(r, Qt::AlignCenter, lbl);
+    {
+        QFont f = p.font(); f.setBold(true); f.setPointSize(8); p.setFont(f);
+        p.setPen(Qt::black);
+        for (int s = 0; s < N; ++s) {
+            double y = logStringY(s, N);
+            auto pt = toPixel(LABEL_X, y);
+            QString lbl = (s < c.tuning.size()) ? c.tuning[s] : "";
+            p.drawText(QRectF(pt.x() - 20, pt.y() - 8, 20, 16),
+                       Qt::AlignRight | Qt::AlignVCenter, lbl);
+        }
     }
 
-    // --- Startbund ---
-    if (c.showStartFret && c.startFret > 1) {
-        static const char *roman[] = {"","I","II","III","IV","V","VI","VII","VIII","IX","X",
-                                       "XI","XII","XIII","XIV","XV","XVI","XVII","XVIII","XIX","XX",
-                                       "XXI","XXII","XXIII","XXIV"};
+    // --- Startbund unter Rahmen ---
+    if (c.showStartFret && c.startFret >= 1) {
+        static const char *roman[] = {
+            "","I","II","III","IV","V","VI","VII","VIII","IX","X",
+            "XI","XII","XIII","XIV","XV","XVI","XVII","XVIII","XIX","XX",
+            "XXI","XXII","XXIII","XXIV"
+        };
         int n = qBound(1, c.startFret, 24);
-        auto mid = toPixel(stringX(0, c.numStrings) - 2*XDIST,
-                           (FRET_Y[0] + FRET_Y[1]) / 2.0);
-        p.save();
-        p.translate(mid);
-        p.rotate(-90);
-        p.drawText(QRectF(-20,-8,40,14), Qt::AlignCenter, roman[n]);
-        p.restore();
+        double cx = (FRET_X[1] + FRET_X[ChordData::NUM_FRETS]) / 2.0;
+        auto pt = toPixel(cx, yBottom - 0.5);
+        QFont f = p.font(); f.setBold(false); f.setPointSize(8); p.setFont(f);
+        p.setPen(Qt::black);
+        p.drawText(QRectF(pt.x() - 30, pt.y() - 8, 60, 16),
+                   Qt::AlignHCenter | Qt::AlignVCenter, roman[n]);
     }
 
     // --- Rahmen ---
-    auto ul = toPixel(stringX(0,       c.numStrings), 3.18);
-    auto ur = toPixel(stringX(c.numStrings-1, c.numStrings), 3.18);
-    auto bl = toPixel(stringX(0,       c.numStrings), BOTTOM_Y);
-    auto br = toPixel(stringX(c.numStrings-1, c.numStrings), BOTTOM_Y);
     p.setPen(QPen(Qt::black, 1.5));
+    p.setBrush(Qt::NoBrush);
+    auto ul = toPixel(FRAME_LEFT,  yTop);
+    auto br = toPixel(FRAME_RIGHT, yBottom);
     p.drawRect(QRectF(ul, br));
 
-    // --- Innere Saitenlinien ---
-    for (int s = 1; s < c.numStrings - 1; ++s) {
-        auto top = toPixel(stringX(s, c.numStrings), 3.18);
-        auto bot = toPixel(stringX(s, c.numStrings), BOTTOM_Y);
-        p.drawLine(top, bot);
+    // --- Horizontale Saitenlinien (innen) ---
+    for (int s = 1; s < N - 1; ++s) {
+        double y = logStringY(s, N);
+        p.drawLine(toPixel(FRAME_LEFT, y), toPixel(FRAME_RIGHT, y));
     }
 
-    // --- Horizontale Bundlinien ---
+    // --- Vertikale Bundstäbe ---
     for (int g = 0; g < 4; ++g) {
-        auto left  = toPixel(stringX(0, c.numStrings), GRID_Y[g]);
-        auto right = toPixel(stringX(c.numStrings-1, c.numStrings), GRID_Y[g]);
-        p.drawLine(left, right);
+        p.drawLine(toPixel(GRID_X[g], yTop), toPixel(GRID_X[g], yBottom));
     }
+
+    // --- Trennlinie Bund 0 / Bund 1 (Sattel-ähnlich, etwas dicker) ---
+    p.setPen(QPen(Qt::black, 3.0));
+    p.drawLine(toPixel(GRID_X[0], yTop), toPixel(GRID_X[0], yBottom));
+
+    p.setPen(QPen(Qt::black, 1.5));
 
     // --- Barré ---
     if (c.barre.active && c.barre.fret >= 1 && c.barre.fret <= ChordData::NUM_FRETS) {
         int fr = c.barre.fret;
-        auto ptL = toPixel(stringX(c.barre.firstString, c.numStrings), FRET_Y[fr]);
-        auto ptR = toPixel(stringX(c.barre.lastString,  c.numStrings), FRET_Y[fr]);
-        double r = 5.0;
-        QPainterPath barPath;
-        barPath.moveTo(ptL.x(), ptL.y() - r);
-        barPath.lineTo(ptR.x(), ptR.y() - r);
-        barPath.arcTo(ptR.x()-r, ptR.y()-r, 2*r, 2*r, 90, -180);
-        barPath.lineTo(ptL.x(), ptL.y() + r);
-        barPath.arcTo(ptL.x()-r, ptL.y()-r, 2*r, 2*r, -90, -180);
-        barPath.closeSubpath();
-        p.setBrush(QColor(30,30,30,210));
-        p.setPen(Qt::NoPen);
-        p.drawPath(barPath);
-        p.setPen(QPen(Qt::black, 1.5));
-        p.setBrush(Qt::NoBrush);
+        int fs = c.barre.firstString;
+        int ls = c.barre.lastString;
+        if (fs < ls) {
+            double x  = fretX(fr);
+            double yS = logStringY(fs, N);  // oben (höhere Saite = kleinerer Index = größeres y)
+            double yE = logStringY(ls, N);  // unten
+            auto ptTop = toPixel(x, yS);
+            auto ptBot = toPixel(x, yE);
+            double r = 5.0;
+            QPainterPath barPath;
+            barPath.moveTo(ptTop.x() - r, ptTop.y());
+            barPath.arcTo(ptTop.x() - r, ptTop.y() - r, 2*r, 2*r, 180, 180);
+            barPath.lineTo(ptBot.x() + r, ptBot.y());
+            barPath.arcTo(ptBot.x() - r, ptBot.y() - r, 2*r, 2*r, 0, 180);
+            barPath.closeSubpath();
+            p.setBrush(QColor(30, 30, 30, 210));
+            p.setPen(Qt::NoPen);
+            p.drawPath(barPath);
+            p.setPen(QPen(Qt::black, 1.5));
+            p.setBrush(Qt::NoBrush);
+        }
     }
 
     // --- Noten ---
-    for (int s = 0; s < c.numStrings; ++s) {
+    for (int s = 0; s < N; ++s) {
+        double y = logStringY(s, N);
         for (int f = 0; f <= ChordData::NUM_FRETS; ++f) {
             NoteState st = c.notes[s][f];
             if (st == NoteState::None) continue;
-            auto pt = toPixel(stringX(s, c.numStrings), FRET_Y[f]);
-            double r = 5.5;
+            double x  = fretX(f);
+            auto   pt = toPixel(x, y);
+            double r  = 5.5;
 
             switch (st) {
-            case NoteState::Root:
-                p.setPen(QPen(Qt::black, 1.5));
-                p.setBrush(Qt::white);
-                p.drawEllipse(pt, r, r);
-                break;
             case NoteState::Tone:
                 p.setPen(QPen(Qt::black, 1.0));
                 p.setBrush(Qt::black);
                 p.drawEllipse(pt, r, r);
                 break;
-            case NoteState::Mute: {
-                // X zeichnen
+            case NoteState::Root:
+                p.setPen(QPen(Qt::black, 2.0));
+                p.setBrush(Qt::white);
+                p.drawEllipse(pt, r, r);
+                p.setPen(Qt::NoPen);
+                p.setBrush(QColor(180, 0, 0));
+                p.drawEllipse(pt, r*0.35, r*0.35);
                 p.setPen(QPen(Qt::black, 1.5));
-                p.drawLine(pt + QPointF(-r, -r), pt + QPointF( r,  r));
-                p.drawLine(pt + QPointF(-r,  r), pt + QPointF( r, -r));
+                p.setBrush(Qt::NoBrush);
+                break;
+            case NoteState::Mute: {
+                p.setPen(QPen(Qt::black, 1.5));
+                double d = r * 0.75;
+                p.drawLine(pt + QPointF(-d, -d), pt + QPointF( d,  d));
+                p.drawLine(pt + QPointF(-d,  d), pt + QPointF( d, -d));
                 break;
             }
             default: break;

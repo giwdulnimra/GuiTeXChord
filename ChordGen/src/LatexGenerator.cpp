@@ -2,41 +2,62 @@
 #include <QStringList>
 
 // ---------------------------------------------------------------------------
-// Koordinatensystem aus grifftabelle.tex:
-//   \xdist = 0.4  →  x-Positionen: (-5,-3,-1,+1,+3,+5)*xdist
-//   fretRow 0  = Leerstring-Zeile   y = 3.10
-//   fretRow 1  = 1. Bund (oben)     y = 2.25
-//   fretRow 2  = 2. Bund            y = 0.75
-//   fretRow 3  = 3. Bund            y = -0.75
-//   fretRow 4  = 4. Bund (unten)    y = -2.25
+// Koordinatensystem – GEDREHT gegenüber grifftabelle.tex:
+//
+//   x-Achse = Bünde (links→rechts):
+//     Bund 0 (Leerstring)  x = FRET_X[0] = -0.5
+//     Bund 1               x = FRET_X[1] =  0.75
+//     Bund 2               x = FRET_X[2] =  2.25
+//     Bund 3               x = FRET_X[3] =  3.75
+//     Bund 4               x = FRET_X[4] =  5.25
+//
+//   y-Achse = Saiten (oben→unten, TikZ y wächst nach oben → tiefste Saite
+//   bekommt den kleinsten y-Wert):
+//     stringIdx 0  = e1  (höchste)  →  y = +YDIST*(N-1)/2
+//     stringIdx N-1= E6  (tiefste)  →  y = -YDIST*(N-1)/2
+//
+//   Gitternetzlinien (vertikale Bundlinien) bei x = GRID_X[0..3]
+//   zwischen den Bund-Mittelpunkten.
+//
+//   Rahmen: von x=FRAME_LEFT bis x=FRAME_RIGHT,
+//           von y=stringY(N-1) bis y=stringY(0)
+//
+//   Saiten-Label: links bei x = LABEL_X
+//   Akkordname:   oben zentriert
+//   Startbund:    unter dem Rahmen, zentriert zwischen Bund 1 und Bund 4
 // ---------------------------------------------------------------------------
-static constexpr double XDIST = 0.4;
-static const double FRET_Y[] = { 3.10, 2.25, 0.75, -0.75, -2.25 };
-// Gitternetz-Linien (horizontale Saiten-Trennlinien)
-static const double GRID_Y[] = { 3.0, 1.5, 0.0, -1.5 };
-// Unterkante des Rahmens
-static constexpr double BOTTOM_Y = -3.0;
-// Label-Zeile über dem Rahmen
-static constexpr double LABEL_Y = 3.6;
-// Startbund-Label x-Position
-static constexpr double STARTFRET_X_OFFSET = -6; // * xdist
 
-double LatexGenerator::stringX(int stringIdx, int numStrings)
+static constexpr double YDIST = 0.7;   // Abstand zwischen Saiten
+
+// x-Positionen der Bund-Mittelpunkte (Noten sitzen hier)
+// Bund 0 etwas abgesetzt, dann gleichmäßige Abstände
+static const double FRET_X[] = { -0.5, 0.75, 2.25, 3.75, 5.25 };
+
+// Vertikale Gitternetzlinien (zwischen Bünden, = Bundstäbe)
+// zwischen FRET_X[f] und FRET_X[f+1], also bei Mitte:
+static const double GRID_X[] = { 0.0, 1.5, 3.0, 4.5 };
+
+static constexpr double FRAME_LEFT  = -1.0;  // linke Rahmenkante (vor Bund 0)
+static constexpr double FRAME_RIGHT =  6.0;  // rechte Rahmenkante (nach Bund 4)
+static constexpr double LABEL_X     = -1.6;  // Saiten-Labels links außen
+static constexpr double NAME_Y_OFFSET = 0.7; // Akkordname oberhalb Rahmen
+
+// ---------------------------------------------------------------------------
+double LatexGenerator::stringY(int stringIdx, int numStrings)
 {
-    // Bei 6 Saiten: Indizes 0..5 → x-Faktoren -5,-3,-1,+1,+3,+5
-    int half = numStrings - 1;
-    return (2 * stringIdx - half) * XDIST;
+    // stringIdx 0 = e1 = oben = größtes y
+    // stringIdx N-1 = E6 = unten = kleinstes y
+    return ((numStrings - 1) / 2.0 - stringIdx) * YDIST;
 }
 
-double LatexGenerator::fretY(int fretRow)
+double LatexGenerator::fretX(int fretRow)
 {
-    if (fretRow >= 0 && fretRow < 5) return FRET_Y[fretRow];
-    return -2.25;
+    if (fretRow >= 0 && fretRow <= ChordData::NUM_FRETS) return FRET_X[fretRow];
+    return FRET_X[ChordData::NUM_FRETS];
 }
 
 QString LatexGenerator::romanNumeral(int n)
 {
-    // Reicht für Gitarren-Lagen (1–24)
     static const char *thousands[] = {"","M","MM","MMM"};
     static const char *hundreds[]  = {"","C","CC","CCC","CD","D","DC","DCC","DCCC","CM"};
     static const char *tens[]      = {"","X","XX","XXX","XL","L","LX","LXX","LXXX","XC"};
@@ -62,8 +83,10 @@ QString LatexGenerator::tikzFragment(const ChordData &chord)
     QStringList lines;
     const int N = chord.numStrings;
 
-    // --- Styles (werden im Fragment mitgeliefert, damit es standalone-fähig
-    //     eingebettet werden kann; im Liedblatt-Kontext ggf. auskommentieren) ---
+    double yTop    = stringY(0,   N);  // e1, oben
+    double yBottom = stringY(N-1, N);  // E6, unten
+
+    // --- Styles ---
     lines << R"(\tikzset{)";
     lines << R"(  root/.style={draw=black,shape=circle,fill=white,minimum size=8pt,inner sep=0pt},)";
     lines << R"(  tone/.style={draw=black,shape=circle,fill=black,minimum size=7pt,inner sep=0pt},)";
@@ -75,99 +98,89 @@ QString LatexGenerator::tikzFragment(const ChordData &chord)
     lines << "";
 
     lines << R"(\begin{tikzpicture})";
-
-    // ---- nodelayer ----
     lines << R"(  \begin{pgfonlayer}{nodelayer})";
 
-    // Akkord-Name oben
+    // Akkord-Name zentriert über dem Diagramm
     if (chord.showName && !chord.fullName().isEmpty()) {
-        double cx = 0.0; // zentriert
-        lines << QString("    \\node [font=\\bfseries] (chordname) at (%1, 4.3) {%2};")
-                     .arg(cx).arg(chord.fullName());
+        double cx = (FRAME_LEFT + FRAME_RIGHT) / 2.0;
+        double cy = yTop + NAME_Y_OFFSET;
+        lines << QString("    \\node [font=\\bfseries] (chordname) at (%1, %2) {%3};")
+                     .arg(cx, 0,'f',3).arg(cy, 0,'f',3).arg(chord.fullName());
     }
 
-    // Saiten-Labels
+    // Saiten-Labels links außen (e1 oben, E6 unten)
     for (int s = 0; s < N; ++s) {
-        double x = stringX(s, N);
+        double y = stringY(s, N);
         QString label = (s < chord.tuning.size()) ? chord.tuning[s] : QString::number(s+1);
-        lines << QString("    \\node [] (t%1) at (%2, %3) {%4};")
-                     .arg(s).arg(x, 0, 'f', 3).arg(LABEL_Y).arg(label);
+        lines << QString("    \\node [anchor=east] (t%1) at (%2, %3) {%4};")
+                     .arg(s).arg(LABEL_X, 0,'f',3).arg(y, 0,'f',3).arg(label);
     }
 
-    // Startbund-Label (nur wenn != I oder explizit gewünscht)
-    if (chord.showStartFret && chord.startFret > 1) {
-        double sx = STARTFRET_X_OFFSET * XDIST;
-        double sy = (FRET_Y[0] + FRET_Y[1]) / 2.0;
-        lines << QString("    \\node [rotate=90] (startfret) at (%1, %2) {%3};")
-                     .arg(sx, 0, 'f', 3).arg(sy, 0, 'f', 3)
+    // Startbund-Label unter dem Rahmen, zentriert über Bünde 1–4
+    if (chord.showStartFret && chord.startFret >= 1) {
+        double cx = (FRET_X[1] + FRET_X[ChordData::NUM_FRETS]) / 2.0;
+        double cy = yBottom - 0.5;
+        lines << QString("    \\node [] (startfret) at (%1, %2) {%3};")
+                     .arg(cx, 0,'f',3).arg(cy, 0,'f',3)
                      .arg(romanNumeral(chord.startFret));
     }
 
-    // Rahmen-Ecken (für \draw ... -- cycle)
-    double xLeft  = stringX(0, N);
-    double xRight = stringX(N-1, N);
-    lines << QString("    \\node [] (frameUL) at (%1, 3.18) {};").arg(xLeft,  0,'f',3);
-    lines << QString("    \\node [] (frameUR) at (%1, 3.18) {};").arg(xRight, 0,'f',3);
-    lines << QString("    \\node [] (frameBL) at (%1, %2) {};")  .arg(xLeft,  0,'f',3).arg(BOTTOM_Y);
-    lines << QString("    \\node [] (frameBR) at (%1, %2) {};")  .arg(xRight, 0,'f',3).arg(BOTTOM_Y);
+    // Rahmen-Ecken
+    lines << QString("    \\node [] (frameUL) at (%1, %2) {};").arg(FRAME_LEFT, 0,'f',3).arg(yTop,    0,'f',3);
+    lines << QString("    \\node [] (frameUR) at (%1, %2) {};").arg(FRAME_RIGHT,0,'f',3).arg(yTop,    0,'f',3);
+    lines << QString("    \\node [] (frameBL) at (%1, %2) {};").arg(FRAME_LEFT, 0,'f',3).arg(yBottom, 0,'f',3);
+    lines << QString("    \\node [] (frameBR) at (%1, %2) {};").arg(FRAME_RIGHT,0,'f',3).arg(yBottom, 0,'f',3);
 
-    // Gitterlinienpunkte (links/rechts pro horizontaler Linie)
+    // Gitterlinienpunkte (vertikale Bundstäbe, oben/unten)
     for (int g = 0; g < 4; ++g) {
-        lines << QString("    \\node [] (gl%1) at (%2, %3) {};")
-                     .arg(g).arg(xLeft, 0,'f',3).arg(GRID_Y[g]);
-        lines << QString("    \\node [] (gr%1) at (%2, %3) {};")
-                     .arg(g).arg(xRight, 0,'f',3).arg(GRID_Y[g]);
+        lines << QString("    \\node [] (gt%1) at (%2, %3) {};").arg(g).arg(GRID_X[g],0,'f',3).arg(yTop,    0,'f',3);
+        lines << QString("    \\node [] (gb%1) at (%2, %3) {};").arg(g).arg(GRID_X[g],0,'f',3).arg(yBottom, 0,'f',3);
     }
 
-    // Saiten-Ankerpunkte (oben/unten, für Barré benötigt)
+    // Saiten-Ankerpunkte (links/rechts, für horizontale Saitenlinien)
     for (int s = 0; s < N; ++s) {
-        double x = stringX(s, N);
-        lines << QString("    \\node [] (sTop%1) at (%2, 3.18) {};").arg(s).arg(x,0,'f',3);
-        lines << QString("    \\node [] (sBot%1) at (%2, %3) {};").arg(s).arg(x,0,'f',3).arg(BOTTOM_Y);
+        double y = stringY(s, N);
+        lines << QString("    \\node [] (sL%1) at (%2, %3) {};").arg(s).arg(FRAME_LEFT, 0,'f',3).arg(y, 0,'f',3);
+        lines << QString("    \\node [] (sR%1) at (%2, %3) {};").arg(s).arg(FRAME_RIGHT,0,'f',3).arg(y, 0,'f',3);
     }
 
-    // Noten-Nodes
+    // Noten-Nodes: x = fretX(f), y = stringY(s)
     for (int s = 0; s < N; ++s) {
-        double x = stringX(s, N);
+        double y = stringY(s, N);
         for (int f = 0; f <= ChordData::NUM_FRETS; ++f) {
             NoteState st = chord.notes[s][f];
-            double y = fretY(f);
+            double x = fretX(f);
             QString styleStr = stateToStyle(st);
             if (styleStr.isEmpty())
                 lines << QString("    \\node [] (n%1_%2) at (%3, %4) {};")
-                             .arg(s).arg(f).arg(x,0,'f',3).arg(y);
+                             .arg(s).arg(f).arg(x,0,'f',3).arg(y,0,'f',3);
             else
                 lines << QString("    \\node [%1] (n%2_%3) at (%4, %5) {};")
-                             .arg(styleStr).arg(s).arg(f).arg(x,0,'f',3).arg(y);
+                             .arg(styleStr).arg(s).arg(f).arg(x,0,'f',3).arg(y,0,'f',3);
         }
     }
 
     lines << R"(  \end{pgfonlayer})";
     lines << "";
-
-    // ---- edgelayer ----
     lines << R"(  \begin{pgfonlayer}{edgelayer})";
 
     // Äußerer Rahmen
     lines << R"(    \draw (frameUL.center) -- (frameUR.center) -- (frameBR.center) -- (frameBL.center) -- cycle;)";
 
-    // Innere Saitenlinien (ohne äußere zwei, die sind Teil des Rahmens)
-    for (int s = 1; s < N-1; ++s) {
-        lines << QString("    \\draw (sTop%1.center) to (sBot%1.center);").arg(s);
-    }
+    // Horizontale Saitenlinien (innen, ohne äußere zwei die zum Rahmen gehören)
+    for (int s = 1; s < N - 1; ++s)
+        lines << QString("    \\draw (sL%1.center) to (sR%1.center);").arg(s);
 
-    // Horizontale Bundlinien
-    for (int g = 0; g < 4; ++g) {
-        lines << QString("    \\draw (gl%1.center) to (gr%1.center);").arg(g);
-    }
+    // Vertikale Bundstäbe (Gitternetzlinien)
+    for (int g = 0; g < 4; ++g)
+        lines << QString("    \\draw (gt%1.center) to (gb%1.center);").arg(g);
 
-    // Barré (gebogene Linie, analog zum bend-right-Beispiel im Template)
+    // Barré: horizontale dicke Linie entlang x=fretX(fr), von stringY(fs) bis stringY(ls)
     if (chord.barre.active) {
-        int fr = chord.barre.fret; // 1-based fretRow
+        int fr = chord.barre.fret;
         int fs = chord.barre.firstString;
         int ls = chord.barre.lastString;
         if (fr >= 1 && fr <= ChordData::NUM_FRETS && fs < ls) {
-            // Dicke geschwungene Linie von einer Saite zur anderen
             lines << QString("    \\draw [line width=5pt, line cap=round, opacity=0.85]"
                              " (n%1_%2.center) to (n%3_%4.center);")
                          .arg(fs).arg(fr).arg(ls).arg(fr);

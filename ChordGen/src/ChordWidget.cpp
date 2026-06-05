@@ -35,7 +35,7 @@ FretCell::FretCell(int stringIdx, int fretRow, QWidget *parent)
 {
     setFixedSize(28, 28);
     setCursor(Qt::PointingHandCursor);
-    setToolTip("Klicken zum Durchschalten: leer → Ton (●) → Grundton (◎) → gedämpft (×)");
+    setToolTip("Klicken: leer → Ton (●) → Grundton (◎) → gedämpft (×) → leer\nSetzt andere Bünde derselben Saite zurück.");
 }
 
 void FretCell::setState(NoteState s) {
@@ -63,11 +63,6 @@ void FretCell::paintEvent(QPaintEvent *)
 
     QColor bg = palette().window().color();
     p.fillRect(rect(), bg);
-
-    // Leichte Hintergrundmarkierung für Bund 0 (Leerstring-Zeile)
-    if (m_fret == 0) {
-        p.fillRect(rect(), QColor(245, 245, 255));
-    }
 
     QPointF center(width()/2.0, height()/2.0);
     double r = 9.0;
@@ -123,40 +118,37 @@ ChordWidget::ChordWidget(int numStrings, const QVector<QString> &tuning, QWidget
     auto *gridGroup = new QGroupBox("Griffbrett");
     auto *gridOuterLayout = new QVBoxLayout(gridGroup);
 
-    // Saiten-Header
-    auto *headerLayout = new QHBoxLayout();
-    headerLayout->addSpacing(30); // Platz für Zeilenbeschriftung
-    for (int s = 0; s < m_numStrings; ++s) {
-        auto *lbl = new QLabel(s < m_tuning.size() ? m_tuning[s] : "?");
-        lbl->setAlignment(Qt::AlignCenter);
-        lbl->setFixedWidth(28);
-        QFont f = lbl->font(); f.setBold(true); lbl->setFont(f);
-        headerLayout->addWidget(lbl);
-    }
-    gridOuterLayout->addLayout(headerLayout);
-
-    // Zellen-Grid
+    // Zellen-Grid: Zeilen = Saiten (e1 oben, E6 unten), Spalten = Bünde (0 links)
     auto *cellGrid = new QGridLayout();
     cellGrid->setSpacing(2);
     m_cells.resize(m_numStrings);
-    const QStringList rowLabels = {"0", "1", "2", "3", "4"};
 
+    // Bund-Header oben (Zeile 0)
+    const QStringList colLabels = {"0", "1", "2", "3", "4"};
+    cellGrid->addWidget(new QLabel(""), 0, 0); // Ecke leer
     for (int f = 0; f <= ChordData::NUM_FRETS; ++f) {
-        auto *rowLbl = new QLabel(rowLabels.value(f, "?"));
-        rowLbl->setFixedWidth(22);
-        rowLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        if (f == 0) {
-            rowLbl->setToolTip("Leerstring: offen oder abgedämpft");
-            rowLbl->setStyleSheet("color: #666;");
-        }
-        cellGrid->addWidget(rowLbl, f, 0);
+        auto *lbl = new QLabel(colLabels.value(f));
+        lbl->setAlignment(Qt::AlignCenter);
+        lbl->setFixedWidth(28);
+        QFont fl = lbl->font(); fl.setBold(true); lbl->setFont(fl);
+        cellGrid->addWidget(lbl, 0, f + 1);
+    }
 
-        for (int s = 0; s < m_numStrings; ++s) {
-            if (f == 0) m_cells[s].resize(ChordData::NUM_FRETS + 1);
+    // Zeilen: stringIdx 0 = e1 (oben) → stringIdx N-1 = E6 (unten)
+    for (int s = 0; s < m_numStrings; ++s) {
+        m_cells[s].resize(ChordData::NUM_FRETS + 1);
+
+        auto *sLbl = new QLabel(s < m_tuning.size() ? m_tuning[s] : "?");
+        sLbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        sLbl->setFixedWidth(26);
+        QFont sf = sLbl->font(); sf.setBold(true); sLbl->setFont(sf);
+        cellGrid->addWidget(sLbl, s + 1, 0);
+
+        for (int f = 0; f <= ChordData::NUM_FRETS; ++f) {
             auto *cell = new FretCell(s, f, this);
             connect(cell, &FretCell::stateChanged, this, &ChordWidget::onCellChanged);
             m_cells[s][f] = cell;
-            cellGrid->addWidget(cell, f, s + 1);
+            cellGrid->addWidget(cell, s + 1, f + 1);
         }
     }
     gridOuterLayout->addLayout(cellGrid);
@@ -269,12 +261,16 @@ ChordWidget::ChordWidget(int numStrings, const QVector<QString> &tuning, QWidget
 // ---------------------------------------------------------------------------
 void ChordWidget::onCellChanged(int string, int fret, NoteState state)
 {
-    // Nur eine Note pro Saite im gegriffenen Bereich (Bünde 1-4)
-    if (fret >= 1 && state != NoteState::None) {
-        for (int f = 1; f <= ChordData::NUM_FRETS; ++f) {
-            if (f != fret) m_cells[string][f]->blockSignals(true),
-                           m_cells[string][f]->reset(),
-                           m_cells[string][f]->blockSignals(false);
+    // Eine Note pro Saite – gilt für alle Bünde 0–4 gleichwertig.
+    // Bund 0 (Leerstring) und Bünde 1–4 überschreiben sich gegenseitig.
+    // Barré ist davon ausgenommen (wird separat verwaltet).
+    if (state != NoteState::None) {
+        for (int f = 0; f <= ChordData::NUM_FRETS; ++f) {
+            if (f != fret) {
+                m_cells[string][f]->blockSignals(true);
+                m_cells[string][f]->reset();
+                m_cells[string][f]->blockSignals(false);
+            }
         }
     }
     syncBarreFromCells();

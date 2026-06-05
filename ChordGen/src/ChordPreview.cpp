@@ -21,6 +21,11 @@ static double logStringY(int idx, int n) {
     return ((n - 1) / 2.0 - idx) * YDIST;
 }
 
+static double fretX(int fretRow) {
+    if (fretRow >= 0 && fretRow <= ChordData::NUM_FRETS) return FRET_X[fretRow];
+    return FRET_X[ChordData::NUM_FRETS];
+}
+
 // ---------------------------------------------------------------------------
 ChordPreview::ChordPreview(QWidget *parent) : QWidget(parent) {
     setMinimumSize(200, 120);

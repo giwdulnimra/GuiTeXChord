@@ -1,0 +1,4 @@
+*.py
+*.lnk
+resources/*
+ChordGen/build/*

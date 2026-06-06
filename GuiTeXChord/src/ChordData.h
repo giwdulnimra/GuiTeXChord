@@ -2,34 +2,47 @@
 #include <QString>
 #include <QVector>
 
-enum class NoteState { None, Tone, Root, Mute };
+// ---------------------------------------------------------------------------
+enum class NoteState  { None, Tone, Root, Mute };
+enum class Orientation { Horizontal, Vertical };
+// Horizontal = Saiten horizontal (Zeilen), Bünde vertikal (Spalten)
+//              → waagerechte Grifftabelle, wie im horizontal-PDF
+// Vertical   = Saiten vertikal (Spalten), Bünde horizontal (Zeilen)
+//              → senkrechte Grifftabelle, wie im vertical-PDF / grifftabelle.tex
 
-struct FretNote {
-    int stringIdx;
-    int fret;
-    NoteState state;
-};
-
+// ---------------------------------------------------------------------------
 struct BarreInfo {
-    bool active = false;
-    int fret = 1;
-    int firstString = 0;
-    int lastString  = 5;
+    bool active      = false;
+    int  fret        = 1;   // 1-based fret (not the open string)
+    int  firstString = 0;   // lower string index
+    int  lastString  = 5;   // higher string index
 };
 
+// ---------------------------------------------------------------------------
 struct ChordData {
+    // Identity
     QString rootNote;
     QString suffix;
-    bool    showName     = true;
-    int     startFret    = 1;
+    bool    showName      = true;
+
+    // Position
+    int     startFret     = 1;
     bool    showStartFret = false;
-    int     numStrings   = 6;
-    QVector<QString> tuning; // tief→hoch, Index 0 = tiefste Saite
 
-    static constexpr int NUM_FRETS = 4;
+    // Strings
+    int              numStrings = 6;
+    QVector<QString> tuning;    // index 0 = lowest string (E)
 
-    QVector<QVector<NoteState>> notes; // [stringIdx][fretRow 0..NUM_FRETS]
+    static constexpr int NUM_FRETS = 4; // number of fretted positions shown
+
+    // Notes: [stringIdx 0=low..N-1=high][fretRow 0=open, 1..NUM_FRETS]
+    QVector<QVector<NoteState>> notes;
+
+    // Barre
     BarreInfo barre;
+
+    // Output orientation
+    Orientation orientation = Orientation::Vertical;
 
     void init() {
         notes.resize(numStrings);

@@ -4,12 +4,15 @@
 
 class LatexGenerator {
 public:
+    // tikzpicture fragment only (for embedding in existing LaTeX docs)
     static QString tikzFragment(const ChordData &chord);
+    // Full compilable standalone document
     static QString standaloneDocument(const ChordData &chord);
 
 private:
-    static double  stringY(int stringIdx, int numStrings);
-    static double  fretX(int fretRow);
+    static QString tikzVertical(const ChordData &chord);
+    static QString tikzHorizontal(const ChordData &chord);
+    static QString commonStyles();
     static QString romanNumeral(int n);
     static QString stateToStyle(NoteState s);
 };

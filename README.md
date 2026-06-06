@@ -107,7 +107,7 @@ ChordGen/
 |---|---|
 | Save .tex | Ctrl+S |
 | Compile PDF | Ctrl+P |
-| Copy TikZ | Ctrl+K |
+| Copy TikZ | Ctrl+C |
 | Reset | Ctrl+Z |
 
 ## License

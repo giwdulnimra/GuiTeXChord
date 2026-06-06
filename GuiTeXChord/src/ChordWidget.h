@@ -9,11 +9,9 @@ class QCheckBox;
 class QSpinBox;
 class QLabel;
 class QPushButton;
-class QToolButton;
 class ChordPreview;
 
-// Ein einzelnes Feld im Griffbrett-Grid
-// Zustand wird per Klick durchgeschalten
+// ---------------------------------------------------------------------------
 class FretCell : public QWidget {
     Q_OBJECT
 public:
@@ -36,7 +34,6 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// Haupt-Widget: Akkord-Eingabe + Vorschau + Export-Buttons
 class ChordWidget : public QWidget {
     Q_OBJECT
 public:
@@ -46,6 +43,9 @@ public:
     ChordData currentChord() const;
     void      loadChord(const ChordData &chord);
     void      clearAll();
+
+    // Sprache umschalten (wird von MainWindow aufgerufen)
+    void retranslate(bool english);
 
 signals:
     void chordChanged();
@@ -58,31 +58,41 @@ public slots:
 private slots:
     void onCellChanged(int string, int fret, NoteState state);
     void onBarreToggled(bool checked);
+    void onDowntuneChanged(int stringIdx, int semitones);
     void updatePreview();
 
 private:
-    void buildGrid();
-    void syncBarreFromCells(); // Auto-Barré-Erkennung
+    void syncBarreFromCells();
+    static QString applyDowntune(const QString &note, int semitones);
 
-    int                   m_numStrings;
-    QVector<QString>      m_tuning;
+    int              m_numStrings;
+    QVector<QString> m_tuning;        // Basis-Stimmung (unverändert)
+    QVector<QString> m_currentTuning; // nach Downtune
+    QVector<int>     m_downtune;      // Halbtöne pro Saite (0..-3)
 
-    // Grid: m_cells[string][fretRow 0..4]
-    QVector<QVector<FretCell*>> m_cells;
+    QVector<QVector<FretCell*>> m_cells; // [stringIdx][fretRow]
+    QVector<QSpinBox*>          m_downtuneSpins; // [stringIdx]
+    QVector<QLabel*>            m_stringLabels;  // [stringIdx]
 
-    // Controls
-    QLineEdit   *m_rootEdit;
-    QComboBox   *m_accidentalCombo; // "", "#", "b"
-    QLineEdit   *m_suffixEdit;
-    QCheckBox   *m_showNameCheck;
-    QSpinBox    *m_startFretSpin;
-    QCheckBox   *m_showStartFretCheck;
-    QCheckBox   *m_barreCheck;
-    QSpinBox    *m_barreFretSpin;
-    QSpinBox    *m_barreFromSpin;
-    QSpinBox    *m_barreToSpin;
-    QLabel      *m_statusLabel;
+    QLineEdit  *m_rootEdit;
+    QComboBox  *m_accidentalCombo;
+    QLineEdit  *m_suffixEdit;
+    QCheckBox  *m_showNameCheck;
+    QSpinBox   *m_startFretSpin;
+    QCheckBox  *m_showStartFretCheck;
+    QCheckBox  *m_barreCheck;
+    QSpinBox   *m_barreFretSpin;
+    QSpinBox   *m_barreFromSpin;
+    QSpinBox   *m_barreToSpin;
+    QLabel     *m_statusLabel;
+    QLabel     *m_outputDirLabel;
     ChordPreview *m_preview;
 
-    QString     m_outputDir;
+    QPushButton *m_texBtn;
+    QPushButton *m_pdfBtn;
+    QPushButton *m_copyBtn;
+    QPushButton *m_resetBtn;
+
+    QString m_outputDir;
+    bool    m_english = true;
 };

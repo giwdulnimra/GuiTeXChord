@@ -10,16 +10,12 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *event) override;
-    QSize sizeHint() const override { return {260, 140}; }
+    QSize sizeHint() const override { return {280, 130}; }
 
 private:
     QPointF toPixel(double lx, double ly) const;
 
     ChordData m_chord;
-
-    // werden in paintEvent() gesetzt
-    mutable double m_scaleX  = 30.0;
-    mutable double m_scaleY  = 30.0;
-    mutable double m_originX = 0.0;
-    mutable double m_originY = 0.0;
+    mutable double m_scaleX = 30.0, m_scaleY = 30.0;
+    mutable double m_originX = 0.0, m_originY = 0.0;
 };

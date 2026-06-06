@@ -2,7 +2,7 @@
 #include <QMainWindow>
 
 class QTabWidget;
-class QListWidget;
+class QAction;
 class ChordWidget;
 
 class MainWindow : public QMainWindow {
@@ -12,6 +12,11 @@ public:
 
 private:
     void setupMenu();
+    void setLanguage(bool english);
+    void showHelp();
 
     QTabWidget *m_tabs;
+    QAction    *m_actEnglish;
+    QAction    *m_actDeutsch;
+    bool        m_english = true;
 };

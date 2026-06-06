@@ -14,6 +14,7 @@
 #include <QProcess>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QPushButton>
 
 MainWindow::MainWindow(QWidget *parent):QMainWindow(parent)
 {
@@ -39,7 +40,7 @@ MainWindow::MainWindow(QWidget *parent):QMainWindow(parent)
 
 void MainWindow::checkLatexOnStartup()
 {
-    QProcess p; p.start("pdflatex","--version"); p.waitForFinished(3000);
+    QProcess p; p.start("pdflatex",{"--version"}); p.waitForFinished(3000);
     if(p.exitCode()!=0){
         QMessageBox msg(this);
         msg.setWindowTitle("LaTeX not found");
@@ -71,7 +72,7 @@ void MainWindow::setupMenu()
     fileMenu->addSeparator();
     auto *actReset=fileMenu->addAction("Reset chord\tCtrl+Z");
     fileMenu->addSeparator();
-    fileMenu->addAction("&Quit",this,&QWidget::close,QKeySequence::Quit);
+    fileMenu->addAction("&Quit", QKeySequence::Quit, this, &QWidget::close);
 
     auto cw=[this]()->ChordWidget*{
         return qobject_cast<ChordWidget*>(m_tabs->currentWidget());};

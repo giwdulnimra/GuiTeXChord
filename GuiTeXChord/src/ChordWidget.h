@@ -53,7 +53,6 @@ private slots:
     void onBarreToggled(bool checked);
     void onOrientationChanged(int idx);
     void onGlobalDowntuneChanged(int val);
-    void updateGrid();
     void updatePreview();
 
 private:

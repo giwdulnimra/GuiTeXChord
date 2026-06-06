@@ -28,6 +28,7 @@
 #include <QUrl>
 #include <QFileInfo>
 #include <QScrollArea>
+#include <QLineEdit>
 
 // ============================================================
 // Chromatic helper
@@ -57,7 +58,7 @@ QString ChordWidget::applyDowntune(const QString &note, int semitones)
 
 bool ChordWidget::checkLatex()
 {
-    QProcess p; p.start("pdflatex","--version");
+    QProcess p; p.start("pdflatex",{"--version"});
     p.waitForFinished(3000);
     return p.exitCode()==0;
 }

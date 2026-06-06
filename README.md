@@ -109,7 +109,3 @@ ChordGen/
 | Compile PDF | Ctrl+P |
 | Copy TikZ | Ctrl+C |
 | Reset | Ctrl+Z |
-
-## License
-
-MIT

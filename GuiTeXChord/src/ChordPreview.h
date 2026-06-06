@@ -9,17 +9,14 @@ public:
     void setChord(const ChordData &chord);
 
 protected:
-    void paintEvent(QPaintEvent *event) override;
-    QSize sizeHint() const override { return {260, 140}; }
+    void paintEvent(QPaintEvent *) override;
+    QSize sizeHint() const override { return {300, 180}; }
 
 private:
+    void drawVertical  (QPainter &p);
+    void drawHorizontal(QPainter &p);
     QPointF toPixel(double lx, double ly) const;
 
     ChordData m_chord;
-
-    // werden in paintEvent() gesetzt
-    mutable double m_scaleX  = 30.0;
-    mutable double m_scaleY  = 30.0;
-    mutable double m_originX = 0.0;
-    mutable double m_originY = 0.0;
+    mutable double m_sx=1, m_sy=1, m_ox=0, m_oy=0;
 };

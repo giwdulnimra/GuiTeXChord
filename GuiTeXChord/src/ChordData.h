@@ -2,49 +2,48 @@
 #include <QString>
 #include <QVector>
 
-// Zustand einer Saite an einem bestimmten Bund
-enum class NoteState { None, Tone, Root, Mute };
+// ---------------------------------------------------------------------------
+enum class NoteState  { None, Tone, Root, Mute };
+enum class Orientation { Horizontal, Vertical };
+// Horizontal = Saiten horizontal (Zeilen), Bünde vertikal (Spalten)
+//              → waagerechte Grifftabelle, wie im horizontal-PDF
+// Vertical   = Saiten vertikal (Spalten), Bünde horizontal (Zeilen)
+//              → senkrechte Grifftabelle, wie im vertical-PDF / grifftabelle.tex
 
-// Ein gegriffener Punkt auf dem Griffbrett
-struct FretNote {
-    int stringIdx; // 0 = tiefste Saite (links im Diagramm)
-    int fret;      // 1-based; 0 = Leerstring-Markierung (open/mute)
-    NoteState state;
-};
-
-// Barré: von Saite firstString bis lastString auf Bund fret
+// ---------------------------------------------------------------------------
 struct BarreInfo {
-    bool active = false;
-    int fret = 1;
-    int firstString = 0; // linke Saite (tiefste)
-    int lastString = 5;  // rechte Saite (höchste)
+    bool active      = false;
+    int  fret        = 1;   // 1-based fret (not the open string)
+    int  firstString = 0;   // lower string index
+    int  lastString  = 5;   // higher string index
 };
 
+// ---------------------------------------------------------------------------
 struct ChordData {
-    // --- Identität ---
-    QString rootNote;     // z.B. "C", "F#", "Bb"
-    QString suffix;       // z.B. "m", "maj7", "sus2", ""
-    bool showName = true;
+    // Identity
+    QString rootNote;
+    QString suffix;
+    bool    showName      = true;
 
-    // --- Griffbrett ---
-    int startFret = 1;    // Anzeige-Startbund (römisch links)
-    bool showStartFret = true; // nur anzeigen wenn != I
+    // Position
+    int     startFret     = 1;
+    bool    showStartFret = false;
 
-    // --- Saiten (Anzahl variabel für spätere Erweiterung) ---
-    int numStrings = 6;
-    QVector<QString> tuning; // z.B. {"E","A","d","g","h","e'"} tief→hoch
+    // Strings
+    int              numStrings = 6;
+    QVector<QString> tuning;    // index 0 = lowest string (E)
 
-    static constexpr int NUM_FRETS = 4; // angezeigte Bünde
+    static constexpr int NUM_FRETS = 4; // number of fretted positions shown
 
-    // --- Noten ---
-    // notes[stringIdx][fretRow]  fretRow 0 = Leerstring-Zeile
-    // state dort: Open, Mute, oder None
-    QVector<QVector<NoteState>> notes; // [string][0..NUM_FRETS]
+    // Notes: [stringIdx 0=low..N-1=high][fretRow 0=open, 1..NUM_FRETS]
+    QVector<QVector<NoteState>> notes;
 
-    // --- Barré ---
+    // Barre
     BarreInfo barre;
 
-    // Initialisierung
+    // Output orientation
+    Orientation orientation = Orientation::Vertical;
+
     void init() {
         notes.resize(numStrings);
         for (auto &col : notes)

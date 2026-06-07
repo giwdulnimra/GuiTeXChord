@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ChordGen VERSION 0.2.0 LANGUAGES CXX)
+project(GuiTeXChord VERSION 0.2.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,11 +12,10 @@ foreach(PART MINOR PATCH)
     endif()
 endforeach()
 set(APPVERSION         "v${PROJECT_VERSION_MAJOR}_${DISP_MINOR}${DISP_PATCH}")
-set(APPVERSION_DISPLAY "v${PROJECT_VERSION}")
-add_compile_definitions(
-    CPP_APPVERSION="${APPVERSION}"
-    CPP_APPVERSION_DISPLAY="${APPVERSION_DISPLAY}"
-)
+add_compile_definitions(APPVERSION_DISPLAY="v${PROJECT_VERSION}")
+
+# Platform setup (defines setup_qt_target and output dirs)
+include("${CMAKE_SOURCE_DIR}/check_os.cmake")
 
 set(SOURCES
     src/main.cpp
@@ -24,6 +23,7 @@ set(SOURCES
     src/ChordWidget.cpp
     src/ChordPreview.cpp
     src/LatexGenerator.cpp
+    resources/resources.qrc
 )
 set(HEADERS
     src/MainWindow.h
@@ -34,5 +34,4 @@ set(HEADERS
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
-include("${CMAKE_SOURCE_DIR}/check_os.cmake")
 setup_qt_target(${PROJECT_NAME})

@@ -1,100 +1,80 @@
 #!/usr/bin/env bash
 # ── unix/build.sh ─────────────────────────────────────────────────────────────
-# Build script for ChordGen on Linux (native or WSL2).
+# Build script for GuiTeXChord on Linux.
 #
-# Usage:
-#   ./unix/build.sh                   # Release build
-#   ./unix/build.sh --debug           # Debug build
-#   ./unix/build.sh --appimage        # Release + package as AppImage
-#   ./unix/build.sh --wsl             # Force WSL2 cmake variant
-#   ./unix/build.sh --qt-prefix PATH  # Override Qt prefix path
-#   ./unix/build.sh --jobs N          # Parallel jobs (default: nproc)
-#
-# Run from the repository root:
-#   cd ChordGen
-#   ./unix/build.sh
+# Usage (run from repo root):
+#   ./unix/build.sh                        # Release, Linux binary
+#   ./unix/build.sh --debug                # Debug, Linux binary
+#   ./unix/build.sh --cross                # Release, Windows binary (cross)
+#   ./unix/build.sh --appimage             # Release + AppImage
+#   ./unix/build.sh --qt-prefix PATH       # Override Qt prefix path
+#   ./unix/build.sh --mxe-root  PATH       # MXE root for cross-compile
+#   ./unix/build.sh --jobs N               # Parallel jobs (default: nproc)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ── Defaults ──────────────────────────────────────────────────────────────────
 BUILD_TYPE="Release"
+CROSS=0
 MAKE_APPIMAGE=0
-PLATFORM_FILE=""   # empty = check_os.cmake decides automatically
 QT_PREFIX=""
+MXE_ROOT="${HOME}/mxe"
 JOBS=$(nproc 2>/dev/null || echo 4)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --debug)      BUILD_TYPE="Debug" ;;
+        --cross)      CROSS=1 ;;
         --appimage)   MAKE_APPIMAGE=1 ;;
-        --wsl)        PLATFORM_FILE="unix/unix_wsl.cmake" ;;
         --qt-prefix)  QT_PREFIX="$2"; shift ;;
-        --jobs)       JOBS="$2"; shift ;;
+        --mxe-root)   MXE_ROOT="$2";  shift ;;
+        --jobs)       JOBS="$2";       shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
     shift
 done
 
-# ── Derive build directory from CMakeLists version ───────────────────────────
-# Read version from CMakeLists.txt (line: project(ChordGen VERSION x.y.z ...))
 VERSION=$(grep -oP '(?<=VERSION )\d+\.\d+\.\d+' "${REPO_ROOT}/CMakeLists.txt" | head -1)
 MAJOR=${VERSION%%.*}; REST=${VERSION#*.}; MINOR=${REST%%.*}; PATCH=${REST##*.}
-PAD() { printf "%02d" "$1"; }
+PAD(){ printf "%02d" "$1"; }
 APPVERSION="v${MAJOR}_$(PAD $MINOR)$(PAD $PATCH)"
 
-if [[ "$BUILD_TYPE" == "Debug" ]]; then
-    BUILD_DIR="${REPO_ROOT}/build/debug_app"
+if [[ $CROSS -eq 1 ]]; then
+    BUILD_DIR="${REPO_ROOT}/build/GuiTeXChord_${APPVERSION}_win_cross"
+    echo "==> Cross-compile: Linux → Windows"
+    echo "    MXE root: ${MXE_ROOT}"
 else
-    BUILD_DIR="${REPO_ROOT}/build/ChordGen_${APPVERSION}_unix"
+    if [[ "$BUILD_TYPE" == "Debug" ]]; then
+        BUILD_DIR="${REPO_ROOT}/build/debug_app"
+    else
+        BUILD_DIR="${REPO_ROOT}/build/GuiTeXChord_${APPVERSION}_unix"
+    fi
+    echo "==> Linux native build"
 fi
+echo "    Version : ${VERSION} (${APPVERSION})"
+echo "    Type    : ${BUILD_TYPE}"
+echo "    Output  : ${BUILD_DIR}"
 
-echo "==> ChordGen build"
-echo "    Version   : ${VERSION} (${APPVERSION})"
-echo "    Type      : ${BUILD_TYPE}"
-echo "    Build dir : ${BUILD_DIR}"
-echo "    Jobs      : ${JOBS}"
+CMAKE_ARGS=(-B "${BUILD_DIR}" -S "${REPO_ROOT}" -G Ninja
+            -DCMAKE_BUILD_TYPE="${BUILD_TYPE}")
 
-# ── CMake configure ───────────────────────────────────────────────────────────
-CMAKE_ARGS=(
-    -B "${BUILD_DIR}"
-    -S "${REPO_ROOT}"
-    -G Ninja
-    -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
-)
-
-if [[ -n "$QT_PREFIX" ]]; then
-    CMAKE_ARGS+=(-DCMAKE_PREFIX_PATH="${QT_PREFIX}")
+if [[ $CROSS -eq 1 ]]; then
+    CMAKE_ARGS+=(
+        -DCMAKE_TOOLCHAIN_FILE="${REPO_ROOT}/unix/mingw-w64-toolchain.cmake"
+        -DFORCE_PLATFORM_FILE="unix/unix_cross.cmake"
+        -DMXE_ROOT="${MXE_ROOT}"
+    )
 fi
-
-# If --wsl was passed, override check_os.cmake by injecting the WSL variant.
-# We do this by temporarily symlinking/copying; cleanest way without patching
-# check_os.cmake is to pass a cache variable that unix_wsl.cmake can read.
-if [[ -n "$PLATFORM_FILE" ]]; then
-    CMAKE_ARGS+=(-DFORCE_PLATFORM_FILE="${PLATFORM_FILE}")
-fi
+[[ -n "$QT_PREFIX" ]] && CMAKE_ARGS+=(-DCMAKE_PREFIX_PATH="${QT_PREFIX}")
 
 cmake "${CMAKE_ARGS[@]}"
-
-# ── Build ─────────────────────────────────────────────────────────────────────
-echo "==> Building…"
 cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" -j "${JOBS}"
+echo "✓ Done: ${BUILD_DIR}"
 
-echo ""
-echo "✓ Build complete: ${BUILD_DIR}"
-
-# ── AppImage packaging ────────────────────────────────────────────────────────
-if [[ "$MAKE_APPIMAGE" -eq 1 && "$BUILD_TYPE" == "Release" ]]; then
-    echo ""
+if [[ "$MAKE_APPIMAGE" -eq 1 && "$BUILD_TYPE" == "Release" && $CROSS -eq 0 ]]; then
     echo "==> Packaging AppImage…"
-    APPIMAGE_RECIPE="${SCRIPT_DIR}/AppImageBuilder.yml"
-    if [[ ! -f "$APPIMAGE_RECIPE" ]]; then
-        echo "✗ AppImageBuilder.yml not found in unix/. Run unix/build.sh without --appimage first."
-        exit 1
-    fi
     cd "${BUILD_DIR}"
-    appimage-builder --recipe "${APPIMAGE_RECIPE}" --skip-test
+    appimage-builder --recipe "${SCRIPT_DIR}/AppImageBuilder.yml" --skip-test
     echo "✓ AppImage created in ${BUILD_DIR}"
 fi

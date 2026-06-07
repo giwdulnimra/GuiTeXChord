@@ -1,27 +1,29 @@
 # ── check_os.cmake ────────────────────────────────────────────────────────────
 #
 # Detects the build platform and delegates to win32/ or unix/.
-# Included by CMakeLists.txt AFTER add_executable().
+# Included by CMakeLists.txt BEFORE add_executable().
 #
-# Optional override (useful for WSL2 builds from build.sh):
-#   cmake -DFORCE_PLATFORM_FILE=unix/unix_wsl.cmake ...
-#   → skips auto-detection and loads the specified file directly.
+# Build variants:
+#   Windows (native)      → win32/win32.cmake       (auto-detected)
+#   Linux   (native)      → unix/unix_native.cmake  (auto-detected)
+#   Linux → Windows cross → unix/unix_cross.cmake
+#     Usage:
+#       cmake -B build/cross_win \
+#             -DCMAKE_TOOLCHAIN_FILE=unix/mingw-w64-toolchain.cmake \
+#             -DFORCE_PLATFORM_FILE=unix/unix_cross.cmake
 #
-# After this include the following are guaranteed:
-#   setup_qt_target(<target>)                        – defined by platform cmake
-#   CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG / _RELEASE  – set by platform cmake
+# After this include, setup_qt_target(<target>) is defined.
 # ─────────────────────────────────────────────────────────────────────────────
 
 if(DEFINED FORCE_PLATFORM_FILE AND NOT FORCE_PLATFORM_FILE STREQUAL "")
-    message(STATUS "[check_os] Override active → ${FORCE_PLATFORM_FILE}")
+    message(STATUS "[check_os] Override → ${FORCE_PLATFORM_FILE}")
     include("${CMAKE_SOURCE_DIR}/${FORCE_PLATFORM_FILE}")
 elseif(WIN32)
-    message(STATUS "[check_os] Platform: Windows  →  win32/win32.cmake")
+    message(STATUS "[check_os] Windows → win32/win32.cmake")
     include("${CMAKE_SOURCE_DIR}/win32/win32.cmake")
 elseif(UNIX)
-    message(STATUS "[check_os] Platform: Unix/Linux  →  unix/unix_native.cmake")
+    message(STATUS "[check_os] Linux → unix/unix_native.cmake")
     include("${CMAKE_SOURCE_DIR}/unix/unix_native.cmake")
 else()
-    message(FATAL_ERROR "[check_os] Unsupported platform. "
-            "Add a branch in check_os.cmake and a matching platform directory.")
+    message(FATAL_ERROR "[check_os] Unsupported platform.")
 endif()

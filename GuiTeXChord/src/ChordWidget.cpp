@@ -141,10 +141,6 @@ ChordWidget::ChordWidget(int numStrings, const QVector<QString> &tuning, QWidget
     m_gridContainer->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
     gg->addWidget(m_gridContainer);
 
-    // Barré: checkbox + fret radios + from/to spinboxes in one row
-    m_barreWidget=new QWidget();
-    gg->addWidget(m_barreWidget);
-
     m_resetBtn=new QPushButton("Reset  [Ctrl+Z]");
     m_resetBtn->setShortcut(QKeySequence("Ctrl+Z"));
     m_resetBtn->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
@@ -247,11 +243,11 @@ ChordWidget::ChordWidget(int numStrings, const QVector<QString> &tuning, QWidget
 }
 
 // ============================================================
-// rebuildGrid
+// rebuildGrid  –  alles in EINEM QGridLayout auf m_gridContainer
 // ============================================================
 void ChordWidget::rebuildGrid()
 {
-    // --- clear grid ---
+    // --- Altes Layout + Widgets wegräumen ---
     if(m_gridContainer->layout()){
         QLayoutItem *item;
         while((item=m_gridContainer->layout()->takeAt(0))!=nullptr){
@@ -263,107 +259,106 @@ void ChordWidget::rebuildGrid()
     for(auto &row:m_cells) for(auto *c:row) if(c) c->deleteLater();
     m_cells.clear();
 
-    // --- clear barré widget ---
-    for(auto *r:m_barreRadios){ m_barreGroup ? m_barreGroup->removeButton(r) : void(); r->deleteLater(); }
-    m_barreRadios.clear();
-    if(m_barreWidget->layout()){
-        QLayoutItem *item;
-        while((item=m_barreWidget->layout()->takeAt(0))!=nullptr){
-            if(item->widget()) item->widget()->deleteLater();
-            delete item;
-        }
-        delete m_barreWidget->layout();
+    for(auto *r:m_barreRadios){
+        if(m_barreGroup) m_barreGroup->removeButton(r);
+        r->deleteLater();
     }
-    if(!m_barreGroup) { m_barreGroup=new QButtonGroup(this); }
+    m_barreRadios.clear();
+    m_barreCheck    = nullptr;
+    m_barreFromCombo= nullptr;
+    m_barreToCombo  = nullptr;
+    if(!m_barreGroup) m_barreGroup = new QButtonGroup(this);
 
-    // --- init cells ---
+    // --- Init ---
     m_cells.resize(m_numStrings);
     for(auto &row:m_cells) row.resize(ChordData::NUM_FRETS+1, nullptr);
 
     int sf = m_startFretSpin ? m_startFretSpin->value() : 1;
-    QStringList fretLabels; fretLabels<<"open";
-    for(int f=1;f<=ChordData::NUM_FRETS;++f) fretLabels<<QString::number(sf+f-1);
+    QStringList fretLabels; fretLabels << "open";
+    for(int f=1;f<=ChordData::NUM_FRETS;++f) fretLabels << QString::number(sf+f-1);
 
-    // Cell size matches: 26px per cell
-    static const int CW = 26; // cell width = cell height
+    // Ein einziges Grid für alles
+    auto *gl = new QGridLayout(m_gridContainer);
+    gl->setSpacing(2);
+    gl->setContentsMargins(0,0,0,0);
 
     if(m_orientation == Orientation::Vertical) {
-        // Saiten = Spalten (E links idx0, e' rechts idx N-1)
-        // Bünde  = Zeilen  (open top, fret4 bottom)
-        // Barré radios: one per fret-column 1..4, placed in same row as fret label
-        //   → extra column to the left (before string label row),
-        //   or inline below as separate row with exact column alignment
+        // ─────────────────────────────────────────────────────────────────
+        // CSV vertikal:
+        //   col 0        = Barré-Radio-Spalte  (Zeilen 2..NUM_FRETS+1)
+        //   col 1        = Fret-Label-Spalte   (Zeilen 1..NUM_FRETS+1)
+        //   col 2..N+1   = Saiten (E=2, e'=N+1)
+        //
+        //   row 0        = Saiten-Header
+        //   row 1        = open-Zeile   (kein Radio, fret 0)
+        //   row 2..NF+1  = Bünde 1..NF  (Radio in col 0, Fret-Label in col 1)
+        //   row NF+2     = Barré-Checkbox + from/to
+        // ─────────────────────────────────────────────────────────────────
 
-        auto *gl=new QGridLayout(m_gridContainer);
-        gl->setSpacing(2); gl->setContentsMargins(0,0,0,0);
-        gl->setColumnStretch(m_numStrings+1, 1);
-
-        // Row 0: string name headers, col 1..N (col 0 = fret label)
+        // row 0: Saiten-Header (col 2..N+1)
         for(int s=0;s<m_numStrings;++s){
             auto *lbl=new QLabel(m_currentTuning[s]);
-            lbl->setAlignment(Qt::AlignCenter); lbl->setFixedSize(CW,18);
+            lbl->setAlignment(Qt::AlignCenter); lbl->setFixedSize(26,18);
             QFont f=lbl->font(); f.setBold(true); lbl->setFont(f);
-            gl->addWidget(lbl, 0, s+1);
+            gl->addWidget(lbl, 0, s+2);
         }
 
-        // Rows 1..NUM_FRETS+1: fret label (col 0) + cells (col 1..N)
+        // row 1..NUM_FRETS+1: fret rows
         for(int f=0;f<=ChordData::NUM_FRETS;++f){
+            int row = f+1;
+
+            // col 0: Radio für Bünde 1..NUM_FRETS; open-Zeile (f=0) bleibt leer
+            if(f >= 1){
+                auto *rb = new QRadioButton();
+                rb->setFixedSize(18, 26);
+                m_barreGroup->addButton(rb, f);
+                m_barreRadios.append(rb);
+                gl->addWidget(rb, row, 0, Qt::AlignCenter);
+            }
+
+            // col 1: Fret-Label
             auto *lbl=new QLabel(fretLabels[f]);
             lbl->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
-            lbl->setFixedWidth(34);
-            gl->addWidget(lbl, f+1, 0);
+            lbl->setFixedWidth(32);
+            gl->addWidget(lbl, row, 1);
+
+            // col 2..N+1: Zellen
             for(int s=0;s<m_numStrings;++s){
                 auto *cell=new FretCell(s,f,m_gridContainer);
                 connect(cell,&FretCell::stateChanged,this,&ChordWidget::onCellChanged);
                 m_cells[s][f]=cell;
-                gl->addWidget(cell, f+1, s+1);
+                gl->addWidget(cell, row, s+2);
             }
         }
 
-        // Barré area: checkbox on left, then radios aligned with fret columns 1..4
-        // Uses its own QGridLayout in m_barreWidget, mirroring the grid columns
-        auto *bl=new QGridLayout(m_barreWidget);
-        bl->setSpacing(2); bl->setContentsMargins(0,2,0,0);
+        // row NUM_FRETS+2: Barré-Checkbox + from/to (col 0..N+1)
+        int barreRow = ChordData::NUM_FRETS+2;
+        m_barreCheck = new QCheckBox("Barré");
+        gl->addWidget(m_barreCheck, barreRow, 0, 1, 2, Qt::AlignLeft|Qt::AlignVCenter);
 
-        // col 0: spacer matching fret-label width (34px)
-        bl->setColumnMinimumWidth(0, 34+2);
-
-        // col 1: open column spacer (same width as cell = CW)
-        bl->setColumnMinimumWidth(1, CW+2);
-
-        // "Barré" checkbox spans col 0..1
-        m_barreCheck=new QCheckBox("Barré");
-        bl->addWidget(m_barreCheck, 0, 0, 1, 2, Qt::AlignLeft|Qt::AlignVCenter);
-
-        // Radios in cols 2..NUM_FRETS+1 matching fret cells 1..NUM_FRETS
-        for(int f=1;f<=ChordData::NUM_FRETS;++f){
-            auto *rb=new QRadioButton();
-            rb->setFixedSize(CW, 20);
-            m_barreGroup->addButton(rb, f);
-            m_barreRadios.append(rb);
-            bl->addWidget(rb, 0, f+1, Qt::AlignCenter);
-        }
-        bl->setColumnStretch(ChordData::NUM_FRETS+2, 1);
-
-        // From / To string spinboxes
-        m_barreFromCombo=new QComboBox(); m_barreFromCombo->setMaximumWidth(60);
-        m_barreToCombo  =new QComboBox(); m_barreToCombo->setMaximumWidth(60);
+        m_barreFromCombo = new QComboBox(); m_barreFromCombo->setMaximumWidth(65);
+        m_barreToCombo   = new QComboBox(); m_barreToCombo->setMaximumWidth(65);
         updateBarreStringCombos();
-        bl->addWidget(new QLabel("from:"), 1, 0, 1, 1, Qt::AlignRight);
-        bl->addWidget(m_barreFromCombo,    1, 1, 1, 2);
-        bl->addWidget(new QLabel("to:"),   1, 3, 1, 1, Qt::AlignRight);
-        bl->addWidget(m_barreToCombo,      1, 4, 1, 2);
+        gl->addWidget(new QLabel("from:"), barreRow, 2, 1, 1, Qt::AlignRight);
+        gl->addWidget(m_barreFromCombo,    barreRow, 3, 1, 2);
+        gl->addWidget(new QLabel("to:"),   barreRow, 5, 1, 1, Qt::AlignRight);
+        gl->addWidget(m_barreToCombo,      barreRow, 6, 1, 2);
+        gl->setColumnStretch(m_numStrings+2, 1);
 
     } else {
-        // Horizontal: Saiten = Zeilen (e' top = idx N-1, E bottom = idx 0)
-        // Bünde      = Spalten (open left, fret4 right)
-        // Barré radios: one per fret-column 1..4, aligned with those columns
+        // ─────────────────────────────────────────────────────────────────
+        // CSV horizontal:
+        //   col 0          = Saiten-Label
+        //   col 1          = open-Spalte   (kein Radio)
+        //   col 2..NF+1    = Bünde 1..NF   (Fret-Header row 0, Radio row N+1)
+        //
+        //   row 0          = Fret-Header
+        //   row 1..N       = Saiten (e'=1, E=N)
+        //   row N+1        = Barré-Checkbox (col 0..1) + Radios (col 2..NF+1)
+        //   row N+2        = from / to
+        // ─────────────────────────────────────────────────────────────────
 
-        auto *gl=new QGridLayout(m_gridContainer);
-        gl->setSpacing(2); gl->setContentsMargins(0,0,0,0);
-        gl->setRowStretch(m_numStrings+1, 1);
-
-        // Row 0: fret headers, col 1..NUM_FRETS+1
+        // row 0: Fret-Header (col 1..NUM_FRETS+1)
         for(int f=0;f<=ChordData::NUM_FRETS;++f){
             auto *lbl=new QLabel(fretLabels[f]);
             lbl->setAlignment(Qt::AlignCenter);
@@ -371,9 +366,9 @@ void ChordWidget::rebuildGrid()
             gl->addWidget(lbl, 0, f+1);
         }
 
-        // Rows 1..N: string label (col 0) + cells (col 1..NUM_FRETS+1)
+        // row 1..N: Saiten (e' oben, E unten)
         for(int row=0;row<m_numStrings;++row){
-            int s=m_numStrings-1-row; // e' top
+            int s = m_numStrings-1-row;
             auto *lbl=new QLabel(m_currentTuning[s]);
             lbl->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
             lbl->setFixedWidth(26);
@@ -387,34 +382,29 @@ void ChordWidget::rebuildGrid()
             }
         }
 
-        // Barré area: checkbox + radios aligned with fret cols 1..4
-        auto *bl=new QGridLayout(m_barreWidget);
-        bl->setSpacing(2); bl->setContentsMargins(0,2,0,0);
-
-        // col 0: string-label spacer
-        bl->setColumnMinimumWidth(0, 26+2);
-        // col 1: open-column spacer
-        bl->setColumnMinimumWidth(1, CW+2);
-
-        m_barreCheck=new QCheckBox("Barré");
-        bl->addWidget(m_barreCheck, 0, 0, 1, 2, Qt::AlignLeft|Qt::AlignVCenter);
+        // row N+1: Barré-Checkbox (col 0..1) + Radios (col 2..NUM_FRETS+1)
+        int barreRow = m_numStrings+1;
+        m_barreCheck = new QCheckBox("Barré");
+        gl->addWidget(m_barreCheck, barreRow, 0, 1, 2, Qt::AlignLeft|Qt::AlignVCenter);
 
         for(int f=1;f<=ChordData::NUM_FRETS;++f){
-            auto *rb=new QRadioButton();
-            rb->setFixedSize(CW, 20);
+            auto *rb = new QRadioButton();
+            rb->setFixedSize(26, 18);
             m_barreGroup->addButton(rb, f);
             m_barreRadios.append(rb);
-            bl->addWidget(rb, 0, f+1, Qt::AlignCenter);
+            gl->addWidget(rb, barreRow, f+1, Qt::AlignCenter);
         }
-        bl->setColumnStretch(ChordData::NUM_FRETS+2, 1);
 
-        m_barreFromCombo=new QComboBox(); m_barreFromCombo->setMaximumWidth(60);
-        m_barreToCombo  =new QComboBox(); m_barreToCombo->setMaximumWidth(60);
+        // row N+2: from / to
+        int fromRow = m_numStrings+2;
+        m_barreFromCombo = new QComboBox(); m_barreFromCombo->setMaximumWidth(65);
+        m_barreToCombo   = new QComboBox(); m_barreToCombo->setMaximumWidth(65);
         updateBarreStringCombos();
-        bl->addWidget(new QLabel("from:"), 1, 0, 1, 1, Qt::AlignRight);
-        bl->addWidget(m_barreFromCombo,    1, 1, 1, 2);
-        bl->addWidget(new QLabel("to:"),   1, 3, 1, 1, Qt::AlignRight);
-        bl->addWidget(m_barreToCombo,      1, 4, 1, 2);
+        gl->addWidget(new QLabel("from:"), fromRow, 0, 1, 1, Qt::AlignRight);
+        gl->addWidget(m_barreFromCombo,    fromRow, 1, 1, 2);
+        gl->addWidget(new QLabel("to:"),   fromRow, 3, 1, 1, Qt::AlignRight);
+        gl->addWidget(m_barreToCombo,      fromRow, 4, 1, 2);
+        gl->setColumnStretch(ChordData::NUM_FRETS+2, 1);
     }
 
     if(!m_barreRadios.isEmpty()) m_barreRadios[0]->setChecked(true);

@@ -70,7 +70,6 @@ private:
 
     QCheckBox    *m_barreCheck    = nullptr;
     QButtonGroup *m_barreGroup    = nullptr;
-    QWidget      *m_barreWidget   = nullptr;
     QComboBox    *m_barreFromCombo= nullptr;
     QComboBox    *m_barreToCombo  = nullptr;
     QGroupBox    *m_gridGroup     = nullptr;

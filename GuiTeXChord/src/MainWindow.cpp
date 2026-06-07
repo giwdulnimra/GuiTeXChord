@@ -120,7 +120,7 @@ void MainWindow::setLanguage(bool english)
 {
     m_english=english;
     // Title: GuiTeXChord - vX.Y.Z
-    QString ver = QString(APPVERSION_DISPLAY);
+    QString ver = QString(CPP_APPVERSION_DISPLAY);
     setWindowTitle(QString("GuiTeXChord - %1").arg(ver));
     for(int i=0;i<m_tabs->count();++i)
         if(auto*cw=qobject_cast<ChordWidget*>(m_tabs->widget(i)))

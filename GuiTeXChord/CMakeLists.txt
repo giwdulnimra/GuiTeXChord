@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(GuiTeXChord VERSION 0.2.1 LANGUAGES CXX)
+project(GuiTeXChord VERSION 0.2.20 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +12,11 @@ foreach(PART MINOR PATCH)
     endif()
 endforeach()
 set(APPVERSION         "v${PROJECT_VERSION_MAJOR}_${DISP_MINOR}${DISP_PATCH}")
-add_compile_definitions(APPVERSION_DISPLAY="v${PROJECT_VERSION}")
+set(APPVERSION_DISPLAY "v${PROJECT_VERSION}")
+add_compile_definitions(
+    CPP_APPVERSION="${APPVERSION}"
+    CPP_APPVERSION_DISPLAY="${APPVERSION_DISPLAY}"
+)
 
 # Platform setup (defines setup_qt_target and output dirs)
 include("${CMAKE_SOURCE_DIR}/check_os.cmake")

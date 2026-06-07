@@ -53,6 +53,7 @@ private slots:
 
 private:
     void rebuildGrid();
+    void updateBarreStringCombos();
     static QString applyDowntune(const QString &note, int semitones);
     static bool    checkLatex();
 
@@ -69,28 +70,27 @@ private:
 
     QCheckBox    *m_barreCheck    = nullptr;
     QButtonGroup *m_barreGroup    = nullptr;
-    QWidget      *m_barreRow      = nullptr;
+    QWidget      *m_barreWidget   = nullptr;
+    QComboBox    *m_barreFromCombo= nullptr;
+    QComboBox    *m_barreToCombo  = nullptr;
     QGroupBox    *m_gridGroup     = nullptr;
     QWidget      *m_gridContainer = nullptr;
     QComboBox    *m_orientCombo   = nullptr;
 
     ChordPreview *m_preview       = nullptr;
-
-    QComboBox  *m_rootCombo    = nullptr;
-    QComboBox  *m_accCombo     = nullptr;
-    QComboBox  *m_suffixCombo  = nullptr;
-    QCheckBox  *m_showNameCheck= nullptr;
-    QSpinBox   *m_startFretSpin= nullptr;
-    QCheckBox  *m_showPosCheck = nullptr;
-    QComboBox  *m_downtuneCombo= nullptr;
-
-    QPushButton *m_pdfBtn      = nullptr;
-    QPushButton *m_texBtn      = nullptr;
-    QPushButton *m_copyBtn     = nullptr;
-    QPushButton *m_resetBtn    = nullptr;
-    QLabel      *m_outDirLabel = nullptr;
-    QLabel      *m_statusLabel = nullptr;
-    QLabel      *m_helpLabel   = nullptr;
-
-    QString m_outputDir;
+    QComboBox    *m_rootCombo     = nullptr;
+    QComboBox    *m_accCombo      = nullptr;
+    QComboBox    *m_suffixCombo   = nullptr;
+    QCheckBox    *m_showNameCheck = nullptr;
+    QSpinBox     *m_startFretSpin = nullptr;
+    QCheckBox    *m_showPosCheck  = nullptr;
+    QComboBox    *m_downtuneCombo = nullptr;
+    QPushButton  *m_pdfBtn        = nullptr;
+    QPushButton  *m_texBtn        = nullptr;
+    QPushButton  *m_copyBtn       = nullptr;
+    QPushButton  *m_resetBtn      = nullptr;
+    QLabel       *m_outDirLabel   = nullptr;
+    QLabel       *m_statusLabel   = nullptr;
+    QLabel       *m_helpLabel     = nullptr;
+    QString       m_outputDir;
 };

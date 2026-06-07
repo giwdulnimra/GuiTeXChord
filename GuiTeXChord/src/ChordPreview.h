@@ -10,11 +10,13 @@ public:
 
 protected:
     void paintEvent(QPaintEvent *) override;
-    QSize sizeHint() const override { return {300, 180}; }
+    QSize sizeHint() const override { return {260, 180}; }
 
 private:
-    void drawVertical  (QPainter &p);
     void drawHorizontal(QPainter &p);
+    void drawVertical  (QPainter &p);
+    void setupTransform(double logL, double logR, double logB, double logT,
+                        double mL,   double mR,   double mT,   double mB);
     QPointF toPixel(double lx, double ly) const;
 
     ChordData m_chord;

@@ -1,4 +1,4 @@
 *.py
 *.lnk
-resource/*
+sources_sketches/*
 GuiTeXChord/build/*

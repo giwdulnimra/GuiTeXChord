@@ -33,7 +33,7 @@ struct ChordData {
     int              numStrings = 6;
     QVector<QString> tuning;    // index 0 = lowest string (E)
 
-    static constexpr int NUM_FRETS = 4; // number of fretted positions shown
+    static constexpr int NUM_FRETS = 5; // fretted positions (open + 5 frets)
 
     // Notes: [stringIdx 0=low..N-1=high][fretRow 0=open, 1..NUM_FRETS]
     QVector<QVector<NoteState>> notes;

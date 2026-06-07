@@ -3,12 +3,11 @@
 #include <QVector>
 #include "ChordData.h"
 
-class QLineEdit; class QComboBox; class QCheckBox;
-class QSpinBox;  class QLabel;    class QPushButton;
-class QButtonGroup; class QRadioButton; class QGroupBox;
+class QComboBox; class QCheckBox; class QSpinBox;
+class QLabel;    class QPushButton; class QGroupBox;
+class QButtonGroup; class QRadioButton;
 class ChordPreview;
 
-// ---------------------------------------------------------------------------
 class FretCell : public QWidget {
     Q_OBJECT
 public:
@@ -27,18 +26,15 @@ private:
     NoteState m_state = NoteState::None;
 };
 
-// ---------------------------------------------------------------------------
 class ChordWidget : public QWidget {
     Q_OBJECT
 public:
     explicit ChordWidget(int numStrings, const QVector<QString> &tuning,
                          QWidget *parent=nullptr);
-
     ChordData currentChord() const;
     void      loadChord(const ChordData &chord);
     void      clearAll();
     void      retranslate(bool english);
-    bool      hasLatex() const { return m_latexOk; }
 
 signals:
     void chordChanged();
@@ -52,14 +48,14 @@ private slots:
     void onCellChanged(int str, int fret, NoteState state);
     void onBarreToggled(bool checked);
     void onOrientationChanged(int idx);
-    void onGlobalDowntuneChanged(int val);
+    void onGlobalDowntuneChanged(int semitones);
     void updatePreview();
 
 private:
     void rebuildGrid();
-    void updateBarreRadios();
+    void updateBarreStringCombos();
     static QString applyDowntune(const QString &note, int semitones);
-    static bool checkLatex();
+    static bool    checkLatex();
 
     int              m_numStrings;
     QVector<QString> m_tuning;
@@ -67,45 +63,33 @@ private:
     int              m_globalDowntune = 0;
     Orientation      m_orientation    = Orientation::Vertical;
     bool             m_latexOk        = false;
+    bool             m_english        = true;
 
-    // Grid cells [stringIdx][fretRow]
     QVector<QVector<FretCell*>> m_cells;
+    QVector<QRadioButton*>      m_barreRadios;
 
-    // Barré radio buttons [fretRow 1..NUM_FRETS]
-    QCheckBox          *m_barreCheck   = nullptr;
-    QButtonGroup       *m_barreGroup   = nullptr;
-    QVector<QRadioButton*> m_barreRadios;
-    QWidget            *m_barreRow     = nullptr; // container for radios
+    QCheckBox    *m_barreCheck    = nullptr;
+    QButtonGroup *m_barreGroup    = nullptr;
+    QComboBox    *m_barreFromCombo= nullptr;
+    QComboBox    *m_barreToCombo  = nullptr;
+    QGroupBox    *m_gridGroup     = nullptr;
+    QWidget      *m_gridContainer = nullptr;
+    QComboBox    *m_orientCombo   = nullptr;
 
-    // Controls – left column
-    QComboBox  *m_orientCombo  = nullptr;
-    QGroupBox  *m_gridGroup    = nullptr;
-    QWidget    *m_gridContainer= nullptr;
-
-    // Controls – right column
-    ChordPreview *m_preview    = nullptr;
-
-    // Chord name
-    QComboBox  *m_rootCombo    = nullptr;
-    QComboBox  *m_accCombo     = nullptr;
-    QComboBox  *m_suffixCombo  = nullptr;
-    QCheckBox  *m_showNameCheck= nullptr;
-
-    // Position & tuning
-    QSpinBox   *m_startFretSpin= nullptr;
-    QCheckBox  *m_showPosCheck = nullptr;
-    QComboBox  *m_downtuneCombo= nullptr;  // Std, -1..-8
-
-    // Export
-    QPushButton *m_pdfBtn  = nullptr;
-    QPushButton *m_texBtn  = nullptr;
-    QPushButton *m_copyBtn = nullptr;
-    QLabel      *m_outDirLabel = nullptr;
-    QLabel      *m_statusLabel = nullptr;
-
-    // Reset
-    QPushButton *m_resetBtn= nullptr;
-
-    QString m_outputDir;
-    bool    m_english = true;
+    ChordPreview *m_preview       = nullptr;
+    QComboBox    *m_rootCombo     = nullptr;
+    QComboBox    *m_accCombo      = nullptr;
+    QComboBox    *m_suffixCombo   = nullptr;
+    QCheckBox    *m_showNameCheck = nullptr;
+    QSpinBox     *m_startFretSpin = nullptr;
+    QCheckBox    *m_showPosCheck  = nullptr;
+    QComboBox    *m_downtuneCombo = nullptr;
+    QPushButton  *m_pdfBtn        = nullptr;
+    QPushButton  *m_texBtn        = nullptr;
+    QPushButton  *m_copyBtn       = nullptr;
+    QPushButton  *m_resetBtn      = nullptr;
+    QLabel       *m_outDirLabel   = nullptr;
+    QLabel       *m_statusLabel   = nullptr;
+    QLabel       *m_helpLabel     = nullptr;
+    QString       m_outputDir;
 };

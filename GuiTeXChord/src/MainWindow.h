@@ -11,7 +11,6 @@ private:
     void setLanguage(bool english);
     void showHelpDialog();
     void checkLatexOnStartup();
-
     QTabWidget *m_tabs;
     QAction    *m_actEn, *m_actDe;
     bool        m_english = true;
